@@ -32,9 +32,9 @@ class TelegramBot:
         self.clearScreen(update, context)
         self.sessions[update.effective_chat.id].messages_to_delete.append(update.message)
         message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                 text="Привет\! Хочешь узнать расписание\? \n *Вот доступные команды:* \n 1\. /login Логин "
-                                      "Пароль \- использется для авторизации в ЛК \n 2\. /calendar \- Узнать расписание "
-                                      "на сегодня", parse_mode='MarkdownV2')
+                                           text="Привет\! Хочешь узнать расписание\? \n *Вот доступные команды:* \n 1\. /login Логин "
+                                                "Пароль \- использется для авторизации в ЛК \n 2\. /calendar \- Узнать расписание "
+                                                "на сегодня", parse_mode='MarkdownV2')
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
     def login(self, update, context):
@@ -47,13 +47,14 @@ class TelegramBot:
                                    message_id=update.message['message_id'])
         if len(context.args) != 2:
             message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text='Неверный формат❗❗❗ \n Пример: "Логин Пароль"')
+                                               text='Неверный формат❗❗❗ \n Пример: /login [Логин] [Пароль]')
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
             return
         if self.sessions[update.effective_chat.id].login(context.args[0], context.args[1]):
             message = context.bot.send_message(chat_id=update.effective_chat.id, text='Авторизация успешна! 🔓')
         else:
-            message = context.bot.send_message(chat_id=update.effective_chat.id, text='Ошибка авторизации 🔒')
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='Ошибка авторизации 🔒 \n Проверьте логин и пароль.')
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
     def clearScreen(self, update, context):
@@ -89,19 +90,19 @@ class TelegramBot:
                                                                            next_day.strftime("%Y-%m-%d"))
         if response is None:
             context.bot.send_message(chat_id=update.effective_chat.id,
-                                     text='Нужно авторизоваться! 🔑🔑🔑, используйте команду /login')
+                                     text='Нужно авторизоваться! 🔑🔑🔑, используйте команду /login [Логин] [Пароль]')
             return
-        self.parseDate(context, update, response, check_day.strftime("%Y-%m-%d"))
+        self.parseDate(context, update, response, check_day)
         keyboard = [
             [
-                InlineKeyboardButton("< 1", callback_data=str(week_day - 1)),
-                InlineKeyboardButton("> 1", callback_data=str(week_day + 1)),
+                InlineKeyboardButton("◀", callback_data=str(week_day - 1)),
+                InlineKeyboardButton("▶", callback_data=str(week_day + 1)),
             ],
             [
-                InlineKeyboardButton("<< 7", callback_data=str(week_day - 7)),
-                InlineKeyboardButton(">> 7", callback_data=str(week_day + 7)),
+                InlineKeyboardButton("⏮", callback_data=str(week_day - 7)),
+                InlineKeyboardButton("⏭", callback_data=str(week_day + 7)),
             ],
-            [InlineKeyboardButton("Сегодня", callback_data='0')],
+            [InlineKeyboardButton("Сегодня ↩", callback_data='0')],
         ]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -115,7 +116,9 @@ class TelegramBot:
 
     def parseDate(self, context, update, dateInfo, current_date):
         message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text='<b>📆 Дата:' + current_date + '</b>', parse_mode='html')
+                                           text='<b>📆 Дата:' + current_date.strftime(
+                                               "%d-%m-%Y") + ' ' + self.getWeekDay(current_date.weekday()) + '</b>',
+                                           parse_mode='html')
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
         if len(dateInfo) == 0:
             message = context.bot.send_message(chat_id=update.effective_chat.id,
@@ -160,3 +163,20 @@ class TelegramBot:
         result += '⏳ Время проведения занятия: ' + calendar.time + '\n'
         result += '📍 <i>Место проведения занятия:</i> ' + calendar.place + '\n'
         return result
+
+    def getWeekDay(self, day):
+        if day == 0:
+            return 'Понедельник'
+        if day == 1:
+            return 'Вторник'
+        if day == 2:
+            return 'Среда'
+        if day == 3:
+            return 'Четверг'
+        if day == 4:
+            return 'Пятница'
+        if day == 5:
+            return 'Суббота'
+        if day == 6:
+            return 'Воскресенье'
+        return '???'
