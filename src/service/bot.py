@@ -21,7 +21,8 @@ class TelegramBot:
         calendar_handler = CommandHandler('calendar', self.calendar)
         dispatcher.add_handler(calendar_handler)
         dispatcher.add_handler(CallbackQueryHandler(self.calendar))
-        updater.start_polling()
+        while True:
+            updater.start_polling()
 
     def help(self, update, context):
         if update.effective_chat.id not in self.sessions:
