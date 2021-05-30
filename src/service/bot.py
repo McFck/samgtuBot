@@ -89,8 +89,9 @@ class TelegramBot:
         response = self.sessions[update.effective_chat.id].getCalendarData(check_day.strftime("%Y-%m-%d"),
                                                                            next_day.strftime("%Y-%m-%d"))
         if response is None:
-            context.bot.send_message(chat_id=update.effective_chat.id,
-                                     text='Нужно авторизоваться! 🔑🔑🔑, используйте команду /login [Логин] [Пароль]')
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='Нужно авторизоваться! 🔑🔑🔑, используйте команду \n /login [Логин] [Пароль]')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
             return
         self.parseDate(context, update, response, check_day)
         keyboard = [
@@ -117,22 +118,57 @@ class TelegramBot:
     def parseDate(self, context, update, dateInfo, current_date):
         message = context.bot.send_message(chat_id=update.effective_chat.id,
                                            text='<b>📆 Дата:' + current_date.strftime(
-                                               "%d-%m-%Y") + ' ' + self.getWeekDay(current_date.weekday()) + '</b>',
+                                               "%d.%m.%Y") + ' ' + self.getWeekDay(current_date.weekday()) + '</b>',
                                            parse_mode='html')
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
         if len(dateInfo) == 0:
             message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text='В этот день занятий нет!')
+                                               text='<b>В этот день занятий нет!</b> 😎',
+                                               parse_mode='html')
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
             return
 
         for item in dateInfo:
             html_to_parse = self.sessions[update.effective_chat.id].getPageToParse(item['url'])
             table = self.parseTable(html_to_parse)
+            taskId = self.getTaskId(html_to_parse)
+            if taskId is not None:
+                tasksToFormat = self.sessions[update.effective_chat.id].getTasksToParse(taskId)
+                table = self.formatTasks(tasksToFormat, table)
             result = self.formatCalendar(table)
             message = context.bot.send_message(chat_id=update.effective_chat.id,
                                                text=result, parse_mode='html')
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+
+    def getMark(self, mark):
+        if mark == '10':
+            return '✅'
+        if mark == '0':
+            return '❌'
+        if mark == '1':
+            return '1️⃣'
+        if mark == '2':
+            return '2️⃣'
+        if mark == '3':
+            return '3️⃣'
+        if mark == '4':
+            return '4️⃣'
+        if mark == '5':
+            return '5️⃣'
+        return '🔍'
+
+    def formatTasks(self, tasks, calendar):
+        for task in tasks:
+            calendar.tasks.append(self.getMark(task['Result']))
+        return calendar
+
+    def getTaskId(self, html):
+        soup = BeautifulSoup(html)
+        taskGrid = soup.find('div', {'ng-modules': 'DistanceLearning'}).find('div', {'class': 'grid-view'})
+        if taskGrid is not None:
+            taskIdToParse = taskGrid.attrs['ng-init']
+            return taskIdToParse[taskIdToParse.find("(") + 1:taskIdToParse.find(")")]
+        return None
 
     def parseTable(self, html):
         soup = BeautifulSoup(html)
@@ -162,6 +198,11 @@ class TelegramBot:
         result += '📖 Вид занятия: ' + calendar.type + '\n'
         result += '⏳ Время проведения занятия: ' + calendar.time + '\n'
         result += '📍 <i>Место проведения занятия:</i> ' + calendar.place + '\n'
+        if len(calendar.tasks) > 0:
+            result += '📝 Результаты: '
+        for task in calendar.tasks:
+            result += task + ' '
+        result += '\n'
         return result
 
     def getWeekDay(self, day):

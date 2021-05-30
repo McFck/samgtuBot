@@ -5,3 +5,4 @@ class CalendarTable:
         self.type = None
         self.time = None
         self.place = None
+        self.tasks = []
