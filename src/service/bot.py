@@ -51,7 +51,8 @@ class TelegramBot:
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
             return
         if self.sessions[update.effective_chat.id].login(context.args[0], context.args[1]):
-            message = context.bot.send_message(chat_id=update.effective_chat.id, text='Авторизация успешна! 🔓')
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='Авторизация успешна! 🔓 \n Теперь вы можете использовать команду /calendar')
         else:
             message = context.bot.send_message(chat_id=update.effective_chat.id,
                                                text='Ошибка авторизации 🔒 \n Проверьте логин и пароль.')
@@ -158,6 +159,9 @@ class TelegramBot:
         return '🔍'
 
     def formatTasks(self, tasks, calendar):
+        if len(tasks) == 0:
+            calendar.newTask = True
+            return calendar
         for task in tasks:
             calendar.tasks.append(self.getMark(task['Result']))
         return calendar
@@ -203,6 +207,8 @@ class TelegramBot:
         for task in calendar.tasks:
             result += task + ' '
         result += '\n'
+        if calendar.newTask:
+            result += '📣 <b>Есть невыполненное задание!</b>' + '\n'
         return result
 
     def getWeekDay(self, day):

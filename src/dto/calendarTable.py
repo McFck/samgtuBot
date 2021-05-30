@@ -6,3 +6,4 @@ class CalendarTable:
         self.time = None
         self.place = None
         self.tasks = []
+        self.newTask = False
