@@ -16,6 +16,8 @@ class TelegramBot:
         dispatcher = updater.dispatcher
         help_handler = CommandHandler('help', self.help)
         dispatcher.add_handler(help_handler)
+        start_handler = CommandHandler('start', self.help)
+        dispatcher.add_handler(start_handler)
         login_handler = CommandHandler('login', self.login)
         dispatcher.add_handler(login_handler)
         calendar_handler = CommandHandler('calendar', self.calendar)
@@ -37,6 +39,12 @@ class TelegramBot:
                                                 "на сегодня", parse_mode='MarkdownV2')
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
+    def isAuthorized(self, id):
+        today = date.today()
+        loginCheck = self.sessions[id].getCalendarData(today.strftime("%Y-%m-%d"),
+                                                       today.strftime("%Y-%m-%d"))
+        return loginCheck is not None
+
     def login(self, update, context):
         if update.effective_chat.id not in self.sessions:
             service = university.University()
@@ -50,6 +58,13 @@ class TelegramBot:
                                                text='Неверный формат❗❗❗ \n Пример: /login [Логин] [Пароль]')
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
             return
+
+        if self.isAuthorized(update.effective_chat.id):
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='Вы уже авторизованы! 🔓')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+            return
+
         if self.sessions[update.effective_chat.id].login(context.args[0], context.args[1]):
             message = context.bot.send_message(chat_id=update.effective_chat.id,
                                                text='Авторизация успешна! 🔓 \n Теперь вы можете использовать команду /calendar')
