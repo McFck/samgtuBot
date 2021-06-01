@@ -7,3 +7,4 @@ class CalendarTable:
         self.place = None
         self.tasks = []
         self.newTask = False
+        self.msg_ids = None
