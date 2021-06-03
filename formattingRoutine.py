@@ -38,8 +38,8 @@ def decl(number):
 
 
 def format_msg(message):
-    result = '<b>{sender}</b>:\n {text}\n<i>{time}</i>'.format(sender=message['Fio'], text=message['Text'],
-                                                               time=message['Date'])
+    result = '<b>{sender}</b>:\n{text}\n<i>{time}</i>'.format(sender=message['Fio'], text=message['Text'],
+                                                              time=message['Date'])
     return result
 
 

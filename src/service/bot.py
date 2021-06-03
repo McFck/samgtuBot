@@ -39,10 +39,12 @@ class TelegramBot:
         self.clearScreen(update, context)
         self.sessions[update.effective_chat.id].messages_to_delete.append(update.message)
         message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text="Привет\! Хочешь узнать расписание\? \n *Вот доступные команды:* \n 1\. /login Логин "
-                                                "Пароль \- использется для авторизации в ЛК \n 2\. /calendar \- Узнать расписание "
-                                                "на сегодня \n По всем вопросам обращайтесь на почту: contact@babunov.dev",
-                                           parse_mode='MarkdownV2')
+                                           text="<b>Привет! Хочешь узнать расписание?</b> \n"
+                                                "Вот доступные команды: \n"
+                                                "1. <b>/login</b> Логин Пароль - использется для авторизации в ЛК \n"
+                                                "2. <b>/calendar</b> - Узнать расписание на сегодня\n"
+                                                "По всем вопросам обращайтесь на почту: <i>contact@babunov.dev</i>",
+                                           parse_mode='html')
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
     def is_Authorized(self, id):
@@ -61,7 +63,8 @@ class TelegramBot:
                                    message_id=update.message['message_id'])
         if len(context.args) != 2:
             message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text='Неверный формат❗❗❗ \n Пример: /login [Логин] [Пароль]')
+                                               text='Неверный формат❗❗❗ \n'
+                                                    'Пример: /login [Логин] [Пароль]')
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
             return
 
@@ -73,10 +76,12 @@ class TelegramBot:
 
         if self.sessions[update.effective_chat.id].login(context.args[0], context.args[1]):
             message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text='Авторизация успешна! 🔓 \n Теперь вы можете использовать команду /calendar')
+                                               text='Авторизация успешна! 🔓 \n'
+                                                    'Теперь вы можете использовать команду /calendar')
         else:
             message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text='Ошибка авторизации 🔒 \n Проверьте логин и пароль.')
+                                               text='Ошибка авторизации 🔒 \n'
+                                                    'Проверьте логин и пароль.')
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
     def clearScreen(self, update, context):
@@ -134,7 +139,8 @@ class TelegramBot:
                                                                            next_day.strftime("%Y-%m-%d"))
         if response is None:
             message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text='Нужно авторизоваться! 🔑🔑🔑, используйте команду \n /login [Логин] [Пароль]')
+                                               text='Нужно авторизоваться! 🔑🔑🔑, используйте команду \n'
+                                                    '/login [Логин] [Пароль]')
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
             return
         self.parse_date(context, update, response, check_day)
@@ -249,7 +255,7 @@ class TelegramBot:
         message = to_delete.reply_text('Навигация:', reply_markup=reply_markup)
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
-    #def return_cache(self, id):
+    # def return_cache(self, id):
     #    id = int(id)
     #    for msg in self.sessions[id].short_cache:
     #        to_delete = self.sessions[id].context.bot.send_message(chat_id=id,
