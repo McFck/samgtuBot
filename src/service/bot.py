@@ -1,5 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
+
 import config
 from src.service import university
 import datetime
@@ -14,6 +15,9 @@ class TelegramBot:
         self.sessions = {}
         updater = Updater(token=config.token, use_context=True)
         dispatcher = updater.dispatcher
+
+        stat_handler = CommandHandler('stat', self.statistics)
+        dispatcher.add_handler(stat_handler)
 
         help_handler = CommandHandler('help', self.help)
         dispatcher.add_handler(help_handler)
@@ -30,6 +34,15 @@ class TelegramBot:
         dispatcher.add_handler(CallbackQueryHandler(self.calendar))
         while True:
             updater.start_polling()
+
+    def statistics(self, update, context):
+        if update.effective_user['id'] != 174740505:
+            return
+        message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text='<b>📈 Статистика:</b> \n'
+                                                'Активных пользователей: ' + str(len(self.sessions)) + '\n',
+                                           parse_mode='html')
+        self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
     def help(self, update, context):
         if update.effective_chat.id not in self.sessions:
@@ -104,7 +117,6 @@ class TelegramBot:
         if query is not None:
             query.answer()
             choice = query.data
-
             if choice.split()[0] == 'msg':
                 split = choice.split()
                 ids = [split[2], split[3], split[4]]
