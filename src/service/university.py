@@ -7,6 +7,7 @@ class University:
         self.context = None
         self.messages_to_delete = []
         self.messages_to_show = {}
+        self.new_update = False
         self.session = requests.Session()
 
     def login(self, username, password):

@@ -1,5 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext, MessageHandler, Filters
 
 import config
 from src.service import university
@@ -8,9 +8,11 @@ from bs4 import BeautifulSoup
 from datetime import date
 from src.dto import calendarTable
 from formattingRoutine import format_msg, get_week_day, format_calendar, formatTasks
+import time
 
 
 class TelegramBot:
+
     def __init__(self):
         self.sessions = {}
         updater = Updater(token=config.token, use_context=True)
@@ -34,6 +36,12 @@ class TelegramBot:
         dispatcher.add_handler(CallbackQueryHandler(self.calendar))
         while True:
             updater.start_polling()
+            time.sleep(1800)
+            self.keep_session()
+
+    def keep_session(self):
+        for chat_id in self.sessions.keys():
+            self.is_Authorized(chat_id)
 
     def statistics(self, update, context):
         if update.effective_user['id'] != 174740505:
