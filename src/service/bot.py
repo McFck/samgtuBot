@@ -37,11 +37,38 @@ class TelegramBot:
         while True:
             updater.start_polling()
             time.sleep(1800)
-            self.keep_session()
+            self.session_loop(updater.bot)
 
-    def keep_session(self):
+    def session_loop(self, bot):
         for chat_id in self.sessions.keys():
-            self.is_Authorized(chat_id)
+            if self.is_Authorized(chat_id):
+                data = self.request_year_data(chat_id)
+                self.check_for_date_updates(data, bot, chat_id)
+
+    def check_for_date_updates(self, data, bot, chat_id):
+        for entry in data:
+            is_new = False
+            cur_date = datetime.datetime.strptime(entry['start'], '%Y-%m-%dT%H:%M:%S').date()
+            message = '<b>🔥 Есть обновления на дате: ' + cur_date.strftime(
+                "%d.%m.%Y") + ' ' + get_week_day(cur_date.weekday()) + '</b>' + '\n' + '✏ Дисциплина: ' + entry[
+                          'title'] + '\n'
+            if entry['IsNew'] == '1':
+                message += '📬 Новые сообщения' + '\n'
+                is_new = True
+            if entry['NewResult'] != '0':
+                message += '📝 Новый результат? (В процессе разработки, сообщите об этом сообщении сюда: contact@babunov.dev)' + '\n'
+                is_new = True
+            if is_new:
+                bot.send_message(chat_id=chat_id,
+                                 text=message,
+                                 parse_mode='html')
+
+    def request_year_data(self, chat_id):
+        summer = date(date.today().year, 9, 22)
+        monitor_start = date(date.today().year, 1, 1) if date.today() < summer else summer
+        monitor_end = date(date.today().year, 12, 31)
+        return self.sessions[chat_id].getCalendarData(monitor_start.strftime("%Y-%m-%d"),
+                                                      monitor_end.strftime("%Y-%m-%d"))
 
     def statistics(self, update, context):
         if update.effective_user['id'] != 174740505:
