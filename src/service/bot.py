@@ -59,16 +59,23 @@ class TelegramBot:
                 message += '📝 Новый результат? (В процессе разработки, сообщите об этом сообщении сюда: contact@babunov.dev)' + '\n'
                 is_new = True
             if is_new:
+                offset = (cur_date - date.today()).days
+                keyboard = [
+                    [
+                        InlineKeyboardButton("Перейти к дате 👀", callback_data=str(offset)),
+                    ],
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
                 bot.send_message(chat_id=chat_id,
                                  text=message,
-                                 parse_mode='html')
+                                 parse_mode='html', reply_markup=reply_markup)
 
     def request_year_data(self, chat_id):
         summer = date(date.today().year, 9, 22)
         monitor_start = date(date.today().year, 1, 1) if date.today() < summer else summer
         monitor_end = date(date.today().year, 12, 31)
-        return self.sessions[chat_id].getCalendarData(monitor_start.strftime("%Y-%m-%d"),
-                                                      monitor_end.strftime("%Y-%m-%d"))
+        return self.sessions[chat_id].get_calendar_data(monitor_start.strftime("%Y-%m-%d"),
+                                                        monitor_end.strftime("%Y-%m-%d"))
 
     def statistics(self, update, context):
         if update.effective_user['id'] != 174740505:
@@ -84,7 +91,7 @@ class TelegramBot:
             service = university.University()
             self.sessions[update.effective_chat.id] = service
 
-        self.clearScreen(update, context)
+        self.clear_screen(update, context)
         self.sessions[update.effective_chat.id].messages_to_delete.append(update.message)
         message = context.bot.send_message(chat_id=update.effective_chat.id,
                                            text="<b>Привет! Хочешь узнать расписание?</b> \n"
@@ -97,8 +104,8 @@ class TelegramBot:
 
     def is_Authorized(self, id):
         today = date.today()
-        loginCheck = self.sessions[id].getCalendarData(today.strftime("%Y-%m-%d"),
-                                                       today.strftime("%Y-%m-%d"))
+        loginCheck = self.sessions[id].get_calendar_data(today.strftime("%Y-%m-%d"),
+                                                         today.strftime("%Y-%m-%d"))
         return loginCheck is not None
 
     def login(self, update, context):
@@ -106,7 +113,7 @@ class TelegramBot:
             service = university.University()
             self.sessions[update.effective_chat.id] = service
 
-        self.clearScreen(update, context)
+        self.clear_screen(update, context)
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=update.message['message_id'])
         if len(context.args) != 2:
@@ -132,7 +139,7 @@ class TelegramBot:
                                                     'Проверьте логин и пароль.')
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
-    def clearScreen(self, update, context):
+    def clear_screen(self, update, context):
         for message in self.sessions[update.effective_chat.id].messages_to_delete:
             context.bot.delete_message(chat_id=update.effective_chat.id,
                                        message_id=message['message_id'])
@@ -143,7 +150,7 @@ class TelegramBot:
             service = university.University()
             self.sessions[update.effective_chat.id] = service
 
-        self.clearScreen(update, context)
+        self.clear_screen(update, context)
         if update.message is not None:
             self.sessions[update.effective_chat.id].messages_to_delete.append(update.message)
         week_day = 0
@@ -182,8 +189,8 @@ class TelegramBot:
         today = date.today()
         check_day = today + datetime.timedelta(days=week_day)
         next_day = today + datetime.timedelta(days=week_day + 1)
-        response = self.sessions[update.effective_chat.id].getCalendarData(check_day.strftime("%Y-%m-%d"),
-                                                                           next_day.strftime("%Y-%m-%d"))
+        response = self.sessions[update.effective_chat.id].get_calendar_data(check_day.strftime("%Y-%m-%d"),
+                                                                             next_day.strftime("%Y-%m-%d"))
         if response is None:
             message = context.bot.send_message(chat_id=update.effective_chat.id,
                                                text='Нужно авторизоваться! 🔑🔑🔑, используйте команду \n'
@@ -218,15 +225,15 @@ class TelegramBot:
             return
 
         for item in dateInfo:
-            html_to_parse = self.sessions[update.effective_chat.id].getPageToParse(item['url'])
+            html_to_parse = self.sessions[update.effective_chat.id].get_page_to_parse(item['url'])
             table = self.parse_table(html_to_parse)
             taskId = self.get_task_id(html_to_parse)
             msgs_ids = self.get_msg_id(html_to_parse)
-            messages = self.sessions[update.effective_chat.id].getMessagesToParse(msgs_ids)
+            messages = self.sessions[update.effective_chat.id].get_messages_to_parse(msgs_ids, True)
             table.msg_ids = ' '.join(msgs_ids)
             self.sessions[update.effective_chat.id].messages_to_show[' '.join(msgs_ids)] = messages
             if taskId is not None:
-                tasksToFormat = self.sessions[update.effective_chat.id].getTasksToParse(taskId)
+                tasksToFormat = self.sessions[update.effective_chat.id].get_tasks_to_parse(taskId)
                 table = formatTasks(tasksToFormat, table)
             result = format_calendar(self, update, table, messages)
             if len(messages) > 0:

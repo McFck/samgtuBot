@@ -36,7 +36,7 @@ class University:
         result = self.session.request("POST", url, headers=headers, data=payload)
         return 'current-user__name' in result.text
 
-    def getCalendarData(self, start, end):
+    def get_calendar_data(self, start, end):
         url = 'https://lk.samgtu.ru/api/common/distancelearning?start={start}T00%3A00%3A00%2B04%3A00&end={end}T00%3A00%3A00%2B04%3A00'.format(
             start=start, end=end)
 
@@ -62,7 +62,7 @@ class University:
             return json.loads(response.text)
         return None
 
-    def getPageToParse(self, url):
+    def get_page_to_parse(self, url):
         url = 'https://lk.samgtu.ru' + url
 
         headers = {
@@ -87,7 +87,7 @@ class University:
             return response.text
         return None
 
-    def getTasksToParse(self, id):
+    def get_tasks_to_parse(self, id):
         url = 'https://lk.samgtu.ru/api/common/distancelearningtaskresults?t_id=' + id
 
         headers = {
@@ -112,10 +112,11 @@ class University:
             return json.loads(response.text)
         return None
 
-    def getMessagesToParse(self, ids):
+    def get_messages_to_parse(self, ids, mark_as_read):
         url = 'https://lk.samgtu.ru/api/common/distancelearningresults?dl_id={dl_id}&dlp_id={dlp_id}&sp_id={sp_id}'.format(
             dl_id=ids[0], dlp_id=ids[1], sp_id=ids[2])
-
+        if mark_as_read:
+            url += '&read=1'
         headers = {
             'Connection': 'keep-alive',
             'Cache-Control': 'max-age=0',
