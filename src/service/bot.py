@@ -229,7 +229,7 @@ class TelegramBot:
             table = self.parse_table(html_to_parse)
             taskId = self.get_task_id(html_to_parse)
             msgs_ids = self.get_msg_id(html_to_parse)
-            messages = self.sessions[update.effective_chat.id].get_messages_to_parse(msgs_ids, True)
+            messages = self.sessions[update.effective_chat.id].get_messages_to_parse(msgs_ids, False)
             table.msg_ids = ' '.join(msgs_ids)
             self.sessions[update.effective_chat.id].messages_to_show[' '.join(msgs_ids)] = messages
             if taskId is not None:
@@ -307,6 +307,7 @@ class TelegramBot:
 
         reply_markup = InlineKeyboardMarkup(keyboard)
         message = to_delete.reply_text('Навигация:', reply_markup=reply_markup)
+        self.sessions[update.effective_chat.id].get_messages_to_parse(ids, True)
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
     # def return_cache(self, id):
