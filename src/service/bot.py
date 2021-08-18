@@ -9,6 +9,7 @@ from datetime import date
 from src.dto import calendarTable
 from formattingRoutine import format_msg, get_week_day, format_calendar, formatTasks
 import time
+import json
 
 
 class TelegramBot:
@@ -77,14 +78,29 @@ class TelegramBot:
         return self.sessions[chat_id].get_calendar_data(monitor_start.strftime("%Y-%m-%d"),
                                                         monitor_end.strftime("%Y-%m-%d"))
 
+    def write_json(self, new_data, filename='stats.json'):
+        with open(filename, 'r+') as file:
+            file_data = json.load(file)
+            for entry in file_data["user_stats"]:
+                if new_data["ID"] == entry["ID"]:
+                    return
+            file_data["user_stats"].append(new_data)
+            file.seek(0)
+            json.dump(file_data, file, indent=4)
+
+    def stat_count(self, filename='stats.json'):
+        with open(filename, 'r+') as file:
+            file_data = json.load(file)
+            return len(file_data["user_stats"])
+
     def statistics(self, update, context):
         if update.effective_user['id'] != 174740505:
             return
         message = context.bot.send_message(chat_id=update.effective_chat.id,
                                            text='<b>📈 Статистика:</b> \n'
-                                                'Активных пользователей: ' + str(len(self.sessions)) + '\n',
+                                                'Онлайн сейчас: ' + str(len(self.sessions)) + '\n'
+                                                'Всего пользователей: ' + str(self.stat_count()) + '\n',
                                            parse_mode='html')
-        self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
     def help(self, update, context):
         if update.effective_chat.id not in self.sessions:
@@ -130,6 +146,12 @@ class TelegramBot:
             return
 
         if self.sessions[update.effective_chat.id].login(context.args[0], context.args[1]):
+            user = update.message.from_user
+            new_user = {
+                "Telegram": "@" + user['username'],
+                "ID": user['id']
+            }
+            self.write_json(new_user)
             message = context.bot.send_message(chat_id=update.effective_chat.id,
                                                text='Авторизация успешна! 🔓 \n'
                                                     'Теперь вы можете использовать команду /calendar')
@@ -140,9 +162,14 @@ class TelegramBot:
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
     def clear_screen(self, update, context):
+        if len(self.sessions) == 0:
+            return
         for message in self.sessions[update.effective_chat.id].messages_to_delete:
-            context.bot.delete_message(chat_id=update.effective_chat.id,
-                                       message_id=message['message_id'])
+            try:
+                context.bot.delete_message(chat_id=update.effective_chat.id,
+                                           message_id=message['message_id'])
+            except Exception as e:
+                print("too old")
         self.sessions[update.effective_chat.id].messages_to_delete = []
 
     def calendar(self, update, context):
