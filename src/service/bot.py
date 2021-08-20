@@ -15,6 +15,7 @@ import json
 class TelegramBot:
 
     def __init__(self):
+        self.super = {174740505}
         self.sessions = {}
         updater = Updater(token=config.token, use_context=True)
         dispatcher = updater.dispatcher
@@ -31,8 +32,14 @@ class TelegramBot:
         login_handler = CommandHandler('login', self.login)
         dispatcher.add_handler(login_handler)
 
+        logout_handler = CommandHandler('logout', self.logout)
+        dispatcher.add_handler(logout_handler)
+
         calendar_handler = CommandHandler('calendar', self.calendar)
         dispatcher.add_handler(calendar_handler)
+
+        jump_to_handler = CommandHandler('to', self.jump_to)
+        dispatcher.add_handler(jump_to_handler)
 
         dispatcher.add_handler(CallbackQueryHandler(self.calendar))
         while True:
@@ -57,7 +64,7 @@ class TelegramBot:
                 message += '📬 Новые сообщения' + '\n'
                 is_new = True
             if entry['NewResult'] != '0':
-                message += '📝 Новый результат? (В процессе разработки, сообщите об этом сообщении сюда: contact@babunov.dev)' + '\n'
+                message += '📝 Новый результат? (В процессе разработки, сообщите об этом тексте сюда: contact@babunov.dev)' + '\n'
                 is_new = True
             if is_new:
                 offset = (cur_date - date.today()).days
@@ -94,12 +101,13 @@ class TelegramBot:
             return len(file_data["user_stats"])
 
     def statistics(self, update, context):
-        if update.effective_user['id'] != 174740505:
+        if update.effective_user['id'] not in self.super:
             return
         message = context.bot.send_message(chat_id=update.effective_chat.id,
                                            text='<b>📈 Статистика:</b> \n'
                                                 'Онлайн сейчас: ' + str(len(self.sessions)) + '\n'
-                                                'Всего пользователей: ' + str(self.stat_count()) + '\n',
+                                                                                              'Всего пользователей: ' + str(
+                                               self.stat_count()) + '\n',
                                            parse_mode='html')
 
     def help(self, update, context):
@@ -110,19 +118,87 @@ class TelegramBot:
         self.clear_screen(update, context)
         self.sessions[update.effective_chat.id].messages_to_delete.append(update.message)
         message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text="<b>Привет! Хочешь узнать расписание?</b> \n"
-                                                "Вот доступные команды: \n"
-                                                "1. <b>/login</b> Логин Пароль - использется для авторизации в ЛК \n"
-                                                "2. <b>/calendar</b> - Узнать расписание на сегодня\n"
-                                                "По всем вопросам обращайтесь на почту: <i>contact@babunov.dev</i>",
+                                           text="<b>Привет! Хочешь узнать как работает бот?</b>\n"
+                                                "Доступные команды: \n"
+                                                "1. <b>/login</b> [Логин] [Пароль] - Использется для авторизации в ЛК \n"
+                                                "2. <b>/calendar</b> - Основное меню бота\n"
+                                                "3. <b>/logout</b> - Завершить сессию и выйти из аккаунта\n"
+                                                "4. <b>/to</b> [день].[месяц].[год] - Посмотреть дату\n"
+                                                "5. <b>/help</b> - Помогите, я потерялся...(Ты уже здесь)\n"
+                                                "<b>Что умеет бот?</b>\n"
+                                                "Бот переодически проверяет расписание на наличие <i>новых "
+                                                "сообщений</i> от преподавателей⚡️\n"
+                                                "С помощью бота, на конкретную дату, ты можешь <i>прочитать "
+                                                "сообщения и проверить оценки</i>👀\n"
+                                                "По всем вопросам обращайся на почту: <i>contact@babunov.dev</i>",
                                            parse_mode='html')
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+        if update.effective_user['id'] in self.super:
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text="<b>🛠Дополнительные команды бота🛠</b> \n"
+                                                    "1. <b>/stat</b> - Узнать статистику бота \n",
+                                               parse_mode='html')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+
+    def jump_to(self, update, context):
+        if update.effective_chat.id not in self.sessions:
+            service = university.University()
+            self.sessions[update.effective_chat.id] = service
+
+        if not self.is_Authorized(update.effective_chat.id):
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='<b>🔑Ошибка!</b>\nВы не авторизованы для использования этой команды.',
+                                               parse_mode='html')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+            return
+
+        if len(context.args) == 0:
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='<b>🖍Использование команды</b>\n'
+                                                    'Пожалуйста, внимательно соблюдайте формат команды! /to [день].[месяц].[год]\n'
+                                                    'Пример: /to 20.08.2021\n'
+                                                    '<i>Месяц и год опциональны, по умолчанию используются параметры <b>относительно сегодняшней даты</b>.</i>',
+                                               parse_mode='html')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+            return
+        args = context.args[0].split('.')
+        next_day = date.today()
+        month = date.today().month
+        year = date.today().year
+        try:
+            if len(args) == 1:
+                next_day = datetime.datetime.strptime('{d}.{m}.{y}'.format(d=int(args[0]), m=month, y=year),
+                                                      '%d.%m.%Y').date()
+            if len(args) == 2:
+                next_day = datetime.datetime.strptime('{d}.{m}.{y}'.format(d=int(args[0]), m=int(args[1]), y=year),
+                                                      '%d.%m.%Y').date()
+            if len(args) == 3:
+                next_day = datetime.datetime.strptime(
+                    '{d}.{m}.{y}'.format(d=int(args[0]), m=int(args[1]), y=int(args[2])),
+                    '%d.%m.%Y').date()
+        except Exception as e:
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='<b>Ошибка!</b>\nНеправильный формат даты.',
+                                               parse_mode='html')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+            return
+        self.calendar(update, context, (next_day - date.today()).days)
 
     def is_Authorized(self, id):
         today = date.today()
         loginCheck = self.sessions[id].get_calendar_data(today.strftime("%Y-%m-%d"),
                                                          today.strftime("%Y-%m-%d"))
         return loginCheck is not None
+
+    def logout(self, update, context):
+        if update.effective_chat.id in self.sessions and self.is_Authorized(update.effective_chat.id):
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text='🔒<b>Сессия завершена</b>\nХорошего дня.', parse_mode='html')
+            self.sessions.pop(update.effective_chat.id)
+            return
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text='<b>🔑Ошибка!</b>\nВы не авторизованы для использования этой команды.',
+                                 parse_mode='html')
 
     def login(self, update, context):
         if update.effective_chat.id not in self.sessions:
@@ -134,8 +210,8 @@ class TelegramBot:
                                    message_id=update.message['message_id'])
         if len(context.args) != 2:
             message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text='Неверный формат❗❗❗ \n'
-                                                    'Пример: /login [Логин] [Пароль]')
+                                               text='<b>🖍Использование команды</b>\n'
+                                                    'Пример: /login [Логин] [Пароль]', parse_mode='html')
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
             return
 
@@ -172,7 +248,7 @@ class TelegramBot:
                 print("too old")
         self.sessions[update.effective_chat.id].messages_to_delete = []
 
-    def calendar(self, update, context):
+    def calendar(self, update, context, week_day=0):
         if update.effective_chat.id not in self.sessions:
             service = university.University()
             self.sessions[update.effective_chat.id] = service
@@ -180,7 +256,6 @@ class TelegramBot:
         self.clear_screen(update, context)
         if update.message is not None:
             self.sessions[update.effective_chat.id].messages_to_delete.append(update.message)
-        week_day = 0
 
         query = update.callback_query
         if query is not None:
