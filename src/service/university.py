@@ -1,6 +1,6 @@
 import json
 import requests
-
+import urllib.parse
 
 class University:
     def __init__(self):
@@ -14,8 +14,9 @@ class University:
     def login(self, username, password):
         url = "https://lk.samgtu.ru/site/login"
 
+        safe_string = urllib.parse.quote_plus(password)
         payload = 'LoginForm%5Busername%5D={log}&LoginForm%5Bpassword%5D={passw}&LoginForm%5BrememberMe%5D=0&LoginForm%5BrememberMe%5D=1'.format(
-            log=username, passw=password)
+            log=username, passw=safe_string)
         headers = {
             'Connection': 'keep-alive',
             'Cache-Control': 'max-age=0',
@@ -116,8 +117,6 @@ class University:
     def get_messages_to_parse(self, ids, mark_as_read):
         url = 'https://lk.samgtu.ru/api/common/distancelearningresults?dl_id={dl_id}&dlp_id={dlp_id}&sp_id={sp_id}'.format(
             dl_id=ids[0], dlp_id=ids[1], sp_id=ids[2])
-        if mark_as_read:
-            url += '&read=1'
         headers = {
             'Connection': 'keep-alive',
             'Cache-Control': 'max-age=0',
@@ -135,6 +134,11 @@ class University:
             'Referer': 'https://lk.samgtu.ru/site/login',
             'Accept-Language': 'ru,en;q=0.9',
         }
+        if mark_as_read:
+            new_url = 'https://lk.samgtu.ru/distancelearning/distancelearningresults/create?dl_id={dl_id}&dlp_id={dlp_id}&sp_id={sp_id}&read=1'.format(
+                dl_id=ids[0], dlp_id=ids[1], sp_id=ids[2])
+            self.session.request("GET", new_url, headers=headers)
+
         response = self.session.request("GET", url, headers=headers)
         if response.status_code == 200:
             return json.loads(response.text)

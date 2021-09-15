@@ -337,7 +337,7 @@ class TelegramBot:
             if taskId is not None:
                 tasksToFormat = self.sessions[update.effective_chat.id].get_tasks_to_parse(taskId)
                 table = formatTasks(tasksToFormat, table)
-            result = format_calendar(self, update, table, messages)
+            result = format_calendar(self, update, table, messages, item['IsNew'])
             if len(messages) > 0:
                 delta = current_date - datetime.date.today()
                 keyboard = [

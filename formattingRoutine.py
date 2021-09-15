@@ -16,7 +16,7 @@ def get_mark(mark):
     return '🔍'
 
 
-def check_for_new_msgs(msgs):
+def check_for_unread_msgs(msgs):
     for msg in msgs:
         if '1' in msg['IsNew']:
             return True
@@ -61,7 +61,7 @@ def get_week_day(day):
     return '???'
 
 
-def format_calendar(self, update, calendar, msgs=[]):
+def format_calendar(self, update, calendar, msgs=[], is_new='0'):
     result = ''
     result += '🧑‍🏫 <b>Преподаватель:</b> ' + calendar.teacher + '\n'
     result += '✏ <b>Дисциплина:</b> ' + calendar.subject + '\n'
@@ -82,8 +82,10 @@ def format_calendar(self, update, calendar, msgs=[]):
     messagesCounter = len(msgs)
 
     if messagesCounter > 0:
-        if check_for_new_msgs(msgs):
-            result += '📬 <b>Есть непрочитанные сообщения!</b>' + '\n'
+        if is_new == '1':
+            result += '📬 <b>Есть новые сообщения!</b>' + '\n'
+        if check_for_unread_msgs(msgs):
+            result += '🗳 <b>Ваши сообщения не прочитаны преподавателем!</b>' + '\n'
         result += '✉ В чате {counter} {msg} \n'.format(counter=messagesCounter, msg=decl(messagesCounter))
     return result
 
