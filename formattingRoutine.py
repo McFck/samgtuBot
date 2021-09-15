@@ -84,7 +84,7 @@ def format_calendar(self, update, calendar, msgs=[], is_new='0'):
     if messagesCounter > 0:
         if is_new == '1':
             result += '📬 <b>Есть новые сообщения!</b>' + '\n'
-        if check_for_unread_msgs(msgs):
+        elif check_for_unread_msgs(msgs):
             result += '🗳 <b>Ваши сообщения не прочитаны преподавателем!</b>' + '\n'
         result += '✉ В чате {counter} {msg} \n'.format(counter=messagesCounter, msg=decl(messagesCounter))
     return result
