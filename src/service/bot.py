@@ -60,13 +60,23 @@ class TelegramBot:
             message = '<b>🔥 Есть обновления на дате: ' + cur_date.strftime(
                 "%d.%m.%Y") + ' ' + get_week_day(cur_date.weekday()) + '</b>' + '\n' + '✏ Дисциплина: ' + entry[
                           'title'] + '\n'
+            new_msgs_data = []
             if entry['IsNew'] == '1':
                 message += '📬 Новые сообщения' + '\n'
-                is_new = True
+                html_to_parse = self.sessions[chat_id].get_page_to_parse(entry['url'])
+                msgs_ids = self.get_msg_id(html_to_parse)
+                messages = self.sessions[chat_id].get_messages_to_parse(msgs_ids, False)
+                cache = self.get_cached_msgs(chat_id)
+                for msg in messages:
+                    if msg['ID'] not in cache:
+                        new_msgs_data.append(msg['ID'])
+                        is_new = True
+
             if entry['NewResult'] != '0':
                 message += '📝 Новый результат? (В процессе разработки, сообщите об этом тексте сюда: contact@babunov.dev)' + '\n'
                 is_new = True
             if is_new:
+                self.write_updates_cache(chat_id, new_msgs_data)
                 offset = (cur_date - date.today()).days
                 keyboard = [
                     [
@@ -78,14 +88,22 @@ class TelegramBot:
                                  text=message,
                                  parse_mode='html', reply_markup=reply_markup)
 
-    def request_year_data(self, chat_id):
-        summer = date(date.today().year, 9, 22)
+    def get_term(self):
+        summer = date(date.today().year, 9, 1)
         monitor_start = date(date.today().year, 1, 1) if date.today() < summer else summer
         monitor_end = date(date.today().year, 12, 31)
-        return self.sessions[chat_id].get_calendar_data(monitor_start.strftime("%Y-%m-%d"),
-                                                        monitor_end.strftime("%Y-%m-%d"))
+        return {'start': monitor_start, 'end': monitor_end}
 
-    def write_json(self, new_data, filename='stats.json'):
+    def request_year_data(self, chat_id):
+        data = self.get_term()
+        return self.sessions[chat_id].get_calendar_data(data['start'].strftime("%Y-%m-%d"),
+                                                        data['end'].strftime("%Y-%m-%d"))
+
+    def request_year_info(self):
+        data = self.get_term()
+        return data['start'].strftime("%Y-%m-%d") + ':' + data['end'].strftime("%Y-%m-%d")
+
+    def write_stats(self, new_data, filename='stats.json'):
         with open(filename, 'r+') as file:
             file_data = json.load(file)
             for entry in file_data["user_stats"]:
@@ -94,6 +112,39 @@ class TelegramBot:
             file_data["user_stats"].append(new_data)
             file.seek(0)
             json.dump(file_data, file, indent=4)
+
+    def get_cached_msgs(self, chat_id):
+        filename = 'src/service/updates_cache.json'
+        with open(filename, 'r+') as file:
+            file_data = json.load(file)
+
+            for entry in file_data['user_data']:
+                if chat_id == entry['ID']:
+                    return entry['msgs']
+        return []
+
+    def write_updates_cache(self, chat_id, new_data):
+        filename = 'src/service/updates_cache.json'
+        file_data = json.load(open(filename))
+        cur_date = self.request_year_info()
+        if file_data['date'] != cur_date:
+            file_data['user_data'] = []
+            file_data['date'] = cur_date
+
+        is_found = False
+        for entry in file_data['user_data']:
+            if entry['ID'] == chat_id:
+                is_found = True
+                if 'msgs' in entry:
+                    entry['msgs'] = entry['msgs'] + new_data
+                else:
+                    entry['msgs'] = new_data
+                break
+
+        if not is_found:
+            file_data['user_data'].append({'ID': chat_id, 'msgs': new_data})
+
+        json.dump(file_data, open(filename, "w"), indent=4)
 
     def stat_count(self, filename='stats.json'):
         with open(filename, 'r+') as file:
@@ -227,7 +278,7 @@ class TelegramBot:
                 "Telegram": "@" + user['username'],
                 "ID": user['id']
             }
-            self.write_json(new_user)
+            self.write_stats(new_user)
             message = context.bot.send_message(chat_id=update.effective_chat.id,
                                                text='Авторизация успешна! 🔓 \n'
                                                     'Теперь вы можете использовать команду /calendar')
