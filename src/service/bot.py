@@ -1,3 +1,5 @@
+import re
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext, MessageHandler, Filters
 
@@ -41,6 +43,9 @@ class TelegramBot:
         jump_to_handler = CommandHandler('to', self.jump_to)
         dispatcher.add_handler(jump_to_handler)
 
+        active_handler = MessageHandler(Filters.text, self.on_msg_handler)
+        dispatcher.add_handler(active_handler)
+
         dispatcher.add_handler(CallbackQueryHandler(self.calendar))
         while True:
             updater.start_polling()
@@ -52,6 +57,16 @@ class TelegramBot:
             if self.is_Authorized(chat_id):
                 data = self.request_year_data(chat_id)
                 self.check_for_date_updates(data, bot, chat_id)
+
+    def on_msg_handler(self, update: Update, context: CallbackContext):
+        chat = update.effective_chat
+        msg = update.effective_message
+        if chat.id in self.sessions and self.sessions[chat.id].interactive:
+            if self.sessions[chat.id].msg_id is not None and self.sessions[update.effective_chat.id].test_fnc(
+                    self.sessions[chat.id].msg_id, msg.text, self.sessions[update.effective_chat.id].cache['csrfToken']):  # send_msg
+                chat.bot.send_message(chat_id=chat.id,
+                                      text="Сообщение отправлено",
+                                      parse_mode='html')
 
     def check_for_date_updates(self, data, bot, chat_id):
         for entry in data:
@@ -303,7 +318,7 @@ class TelegramBot:
         if update.effective_chat.id not in self.sessions:
             service = university.University()
             self.sessions[update.effective_chat.id] = service
-
+        self.sessions[update.effective_chat.id].interactive = False
         self.clear_screen(update, context)
         if update.message is not None:
             self.sessions[update.effective_chat.id].messages_to_delete.append(update.message)
@@ -384,26 +399,28 @@ class TelegramBot:
             msgs_ids = self.get_msg_id(html_to_parse)
             messages = self.sessions[update.effective_chat.id].get_messages_to_parse(msgs_ids, False)
             table.msg_ids = ' '.join(msgs_ids)
+            self.sessions[update.effective_chat.id].cache['csrfToken'] = self.get_csrf(html_to_parse)
             self.sessions[update.effective_chat.id].messages_to_show[' '.join(msgs_ids)] = messages
             if taskId is not None:
                 tasksToFormat = self.sessions[update.effective_chat.id].get_tasks_to_parse(taskId)
                 table = formatTasks(tasksToFormat, table)
             result = format_calendar(self, update, table, messages, item['IsNew'])
-            if len(messages) > 0:
-                delta = current_date - datetime.date.today()
-                keyboard = [
-                    [InlineKeyboardButton("Сообщения",
-                                          callback_data='msg {days} {id0} {id1} {id2}'.format(days=delta.days,
-                                                                                              id0=msgs_ids[0],
-                                                                                              id1=msgs_ids[1],
-                                                                                              id2=msgs_ids[2]))],
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                                   text=result, parse_mode='html', reply_markup=reply_markup)
-            else:
-                message = context.bot.send_message(chat_id=update.effective_chat.id,
-                                                   text=result, parse_mode='html')
+
+            # if len(messages) > 0:
+            delta = current_date - datetime.date.today()
+            keyboard = [
+                [InlineKeyboardButton("Сообщения",
+                                      callback_data='msg {days} {id0} {id1} {id2}'.format(days=delta.days,
+                                                                                          id0=msgs_ids[0],
+                                                                                          id1=msgs_ids[1],
+                                                                                          id2=msgs_ids[2]))],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text=result, parse_mode='html', reply_markup=reply_markup)
+            # else:
+            #    message = context.bot.send_message(chat_id=update.effective_chat.id,
+            #                                      text=result, parse_mode='html')
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
             # self.sessions[update.effective_chat.id].short_cache.append(result)
             # self.sessions[update.effective_chat.id].context = context
@@ -415,6 +432,11 @@ class TelegramBot:
             taskIdToParse = taskGrid.attrs['ng-init']
             return taskIdToParse[taskIdToParse.find("(") + 1:taskIdToParse.find(")")]
         return None
+
+    def get_csrf(self, html):
+        soup = BeautifulSoup(html)
+        container = soup.find("meta", {"name": "csrf-token"})
+        return container.attrs['content']
 
     def get_msg_id(self, html):
         soup = BeautifulSoup(html)
@@ -448,6 +470,9 @@ class TelegramBot:
     def process_msgs(self, update, context, offset, ids):
         key = ' '.join(ids)
         lst = self.sessions[update.effective_chat.id].messages_to_show.get(key)
+        to_delete = context.bot.send_message(chat_id=update.effective_chat.id,
+                                             text="Интерактивный чат", parse_mode='html')
+        self.sessions[update.effective_chat.id].messages_to_delete.append(to_delete)
         for message in lst:
             to_delete = context.bot.send_message(chat_id=update.effective_chat.id,
                                                  text=format_msg(message), parse_mode='html')
@@ -462,6 +487,8 @@ class TelegramBot:
         message = to_delete.reply_text('Навигация:', reply_markup=reply_markup)
         self.sessions[update.effective_chat.id].get_messages_to_parse(ids, True)
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+        self.sessions[update.effective_chat.id].msg_id = ids
+        self.sessions[update.effective_chat.id].interactive = True
 
     # def return_cache(self, id):
     #    id = int(id)

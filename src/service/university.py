@@ -2,14 +2,17 @@ import json
 import requests
 import urllib.parse
 
+
 class University:
     def __init__(self):
+        self.interactive = False
         self.context = None
         self.messages_to_delete = []
         self.messages_to_show = {}
         self.new_update = False
         self.msg_id = None
         self.session = requests.Session()
+        self.cache = {}
 
     def login(self, username, password):
         url = "https://lk.samgtu.ru/site/login"
@@ -140,6 +143,64 @@ class University:
             self.session.request("GET", new_url, headers=headers)
 
         response = self.session.request("GET", url, headers=headers)
+        if response.status_code == 200:
+            return json.loads(response.text)
+        return None
+
+    def send_msg(self, ids, msg):
+        url = 'https://lk.samgtu.ru/distancelearning/distancelearningresults/create?dl_id={dl_id}&dlp_id={dlp_id}&sp_id={sp_id}'.format(
+            dl_id=ids[0], dlp_id=ids[1], sp_id=ids[2])
+        headers = {
+            'sec-ch-ua': '"Chromium";v="94", "Yandex";v="21", ";Not A Brand";v="99"',
+            'sec-ch-ua-mobile': '?0',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.85 YaBrowser/21.11.0.1996 Yowser/2.5 Safari/537.36',
+            'Content-Type': 'multipart/form-data;',
+            'Accept': '*/*',
+            'sec-ch-ua-platform': 'Windows',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-Token': 'Z01PcFdBaHUoHx4WJiQdBh0YfgQCFlwDUxR5IgZ0OgQRGXsvbnUfQQ=='
+        }
+
+        payload = {
+            'DistanceLearningResults[UploadStoredFile]': ("", ""),
+            'DistanceLearningResults[Text]': (None, 'test'),
+            'tax_file': (None, 'undefined')
+        }
+
+        response = self.session.post(url, headers=headers,
+                                     files=payload)  # post(url, headers=headers, files=payload, cookies=self.session.cookies)
+
+        if response.status_code == 200:
+            return json.loads(response.text)
+        return None
+
+    def test_fnc(self, ids, msg, token):
+        url = 'https://lk.samgtu.ru/distancelearning/distancelearningresults/create?dl_id={dl_id}&dlp_id={dlp_id}&sp_id={sp_id}'.format(
+            dl_id=ids[0], dlp_id=ids[1], sp_id=ids[2])
+        headers = {
+            'Connection': 'keep-alive',
+            'Cache-Control': 'max-age=0',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="90", "Yandex";v="90"',
+            'sec-ch-ua-mobile': '?0',
+            'Upgrade-Insecure-Requests': '1',
+            'Origin': 'https://lk.samgtu.ru/',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.72 YaBrowser/21.5.1.330 Yowser/2.5 Safari/537.36',
+            'Accept': '*/*',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-User': '?1',
+            'Sec-Fetch-Dest': 'document',
+            'Accept-Language': 'ru,en;q=0.9',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-Token': '{csrf}'.format(csrf=token)
+        }
+
+        payload = 'DistanceLearningResults%5BText%5D={message}&' \
+                  'DistanceLearningResults%5BUploadStoredFile%5D=""&' \
+                  'tax_file=""'.format(message=msg)
+
+        response = self.session.request("POST", url, headers=headers, data=payload)
         if response.status_code == 200:
             return json.loads(response.text)
         return None
