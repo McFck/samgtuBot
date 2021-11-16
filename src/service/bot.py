@@ -63,7 +63,7 @@ class TelegramBot:
         msg = update.effective_message
         if chat.id in self.sessions and self.sessions[chat.id].interactive:
             if self.sessions[chat.id].msg_id is not None and self.sessions[update.effective_chat.id].test_fnc(
-                    self.sessions[chat.id].msg_id, msg.text, self.sessions[update.effective_chat.id].cache['csrfToken']):  # send_msg
+                    self.sessions[chat.id].msg_id, msg.text):  # send_msg
                 chat.bot.send_message(chat_id=chat.id,
                                       text="Сообщение отправлено",
                                       parse_mode='html')
@@ -391,7 +391,7 @@ class TelegramBot:
                                                parse_mode='html')
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
             return
-
+        self.sessions[update.effective_chat.id].cache = {}
         for item in dateInfo:
             html_to_parse = self.sessions[update.effective_chat.id].get_page_to_parse(item['url'])
             table = self.parse_table(html_to_parse)
@@ -399,7 +399,7 @@ class TelegramBot:
             msgs_ids = self.get_msg_id(html_to_parse)
             messages = self.sessions[update.effective_chat.id].get_messages_to_parse(msgs_ids, False)
             table.msg_ids = ' '.join(msgs_ids)
-            self.sessions[update.effective_chat.id].cache['csrfToken'] = self.get_csrf(html_to_parse)
+            self.sessions[update.effective_chat.id].cache[' '.join(msgs_ids)] = self.get_csrf(html_to_parse)
             self.sessions[update.effective_chat.id].messages_to_show[' '.join(msgs_ids)] = messages
             if taskId is not None:
                 tasksToFormat = self.sessions[update.effective_chat.id].get_tasks_to_parse(taskId)
@@ -411,9 +411,9 @@ class TelegramBot:
             keyboard = [
                 [InlineKeyboardButton("Сообщения",
                                       callback_data='msg {days} {id0} {id1} {id2}'.format(days=delta.days,
-                                                                                          id0=msgs_ids[0],
-                                                                                          id1=msgs_ids[1],
-                                                                                          id2=msgs_ids[2]))],
+                                                                                                id0=msgs_ids[0],
+                                                                                                id1=msgs_ids[1],
+                                                                                                id2=msgs_ids[2]))],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             message = context.bot.send_message(chat_id=update.effective_chat.id,
