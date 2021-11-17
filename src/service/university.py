@@ -176,7 +176,7 @@ class University:
             return json.loads(response.text)
         return None
 
-    def test_fnc(self, ids, msg):
+    def test_fnc(self, ids, msg, manual=None):
         url = 'https://lk.samgtu.ru/distancelearning/distancelearningresults/create?dl_id={dl_id}&dlp_id={dlp_id}&sp_id={sp_id}'.format(
             dl_id=ids[0], dlp_id=ids[1], sp_id=ids[2])
         headers = {
@@ -195,8 +195,12 @@ class University:
             'Sec-Fetch-Dest': 'document',
             'Accept-Language': 'ru,en;q=0.9',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-Token': '{csrf}'.format(csrf=self.cache[' '.join(ids)])
         }
+
+        if manual is None:
+            headers['X-CSRF-Token'] = self.cache[' '.join(ids)]
+        else:
+            headers['X-CSRF-Token'] = manual
 
         payload = 'DistanceLearningResults%5BText%5D={message}&' \
                   'DistanceLearningResults%5BUploadStoredFile%5D=""&' \

@@ -1,3 +1,4 @@
+import random
 import re
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -13,14 +14,27 @@ from formattingRoutine import format_msg, get_week_day, format_calendar, formatT
 import time
 import json
 
+from apscheduler.schedulers.background import BackgroundScheduler
+
 
 class TelegramBot:
 
     def __init__(self):
         self.super = {174740505}
         self.sessions = {}
+        self.scheduler = BackgroundScheduler()
+        self.scheduler.start()
         updater = Updater(token=config.token, use_context=True)
         dispatcher = updater.dispatcher
+
+        set_super_handler = CommandHandler('super', self.set_super)
+        dispatcher.add_handler(set_super_handler)
+
+        attend_handler = CommandHandler('attend', self.attend)
+        dispatcher.add_handler(attend_handler)
+
+        clear_attend = CommandHandler('attclear', self.clear_attendance)
+        dispatcher.add_handler(clear_attend)
 
         stat_handler = CommandHandler('stat', self.statistics)
         dispatcher.add_handler(stat_handler)
@@ -67,6 +81,154 @@ class TelegramBot:
                 chat.bot.send_message(chat_id=chat.id,
                                       text="Сообщение отправлено",
                                       parse_mode='html')
+
+    def attend(self, update, context):
+        if update.effective_chat.id not in self.sessions:
+            service = university.University()
+            self.sessions[update.effective_chat.id] = service
+
+        if not self.check_super(update.effective_chat.id):
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='<b>🔑Ошибка!</b>\nВам не открыт этот функционал. Для учтонения информации обратитесь по адресу: contact@babunov.dev',
+                                               parse_mode='html')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+            return
+
+        if not self.is_Authorized(update.effective_chat.id):
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='<b>🔑Ошибка!</b>\nВы не авторизованы для использования этой команды.',
+                                               parse_mode='html')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+            return
+
+        chat = update.effective_chat
+        msg = update.effective_message
+        msg_content = msg.text.split(maxsplit=1)
+        if len(msg_content) == 1:
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='<b>Автоматическая отметка о присутствии</b>\n'
+                                                    'Пример использования команды\n<b>/attend системы: 17.11, 18.11; математика: 20.11</b>\n'
+                                                    '\nФормат команды\n<b>/attend (название предмета или слово в нем содержащееся): (даты); (аналогично)</b>\n'
+                                                    '\nЕсли вдруг вы совершили ошибку, воспользуйтесь командой /attclear для очистки планировщика.\n'
+                                                    'Обращаю ваше внимание, что функционал в БЕТА тестировании и может давать сбой.',
+                                               parse_mode='html')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+            return
+        commands = msg_content[1].split(';')
+        for command in commands:
+            args = command.split(':')
+            subject = args[0]
+            datestamps = args[1].split(',')
+            for datestamp in datestamps:
+                self.createTask(update, context, subject, datestamp)
+
+    def set_super(self, update, context):
+        if update.effective_chat.id not in self.super:
+            return
+
+        chat = update.effective_chat
+        msg = update.effective_message
+        msg_content = msg.text.split(maxsplit=1)
+        with open('stats.json', 'r+') as f:
+            data = json.load(f)
+            for user in data['user_stats']:
+                if user['Telegram'] == msg_content[1]:
+                    user['isSuper'] = True
+                    chat.bot.send_message(chat_id=chat.id,
+                                          text='Права пользователя обновлены!',
+                                          parse_mode='html')
+            f.seek(0)
+            json.dump(data, f, indent=4)
+            f.truncate()
+
+    def check_super(self, id):
+        with open('stats.json') as f:
+            data = json.load(f)
+            for user in data['user_stats']:
+                if user['ID'] == id:
+                    return user['isSuper']
+        return False
+
+    def createTask(self, update, context, subject, datestamp):
+        next_day = date.today()
+        month = date.today().month
+        year = date.today().year
+        args = datestamp.split('.')
+        try:
+            if len(args) == 1:
+                next_day = datetime.datetime.strptime('{d}.{m}.{y}'.format(d=int(args[0]), m=month, y=year),
+                                                      '%d.%m.%Y').date()
+            if len(args) == 2:
+                next_day = datetime.datetime.strptime('{d}.{m}.{y}'.format(d=int(args[0]), m=int(args[1]), y=year),
+                                                      '%d.%m.%Y').date()
+            if len(args) == 3:
+                next_day = datetime.datetime.strptime(
+                    '{d}.{m}.{y}'.format(d=int(args[0]), m=int(args[1]), y=int(args[2])),
+                    '%d.%m.%Y').date()
+        except Exception as e:
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='<b>Ошибка!</b>\nНеправильный формат даты.',
+                                               parse_mode='html')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+            return
+
+        # self.calendar(update, context, (next_day - date.today()).days)
+        day_after = (next_day + datetime.timedelta(days=1))
+        response = self.sessions[update.effective_chat.id].get_calendar_data(next_day.strftime("%Y-%m-%d"),
+                                                                             day_after.strftime("%Y-%m-%d"))
+        is_found = False
+        if response is None:
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='Нужно авторизоваться! 🔑🔑🔑, используйте команду \n'
+                                                    '/login [Логин] [Пароль]')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+        for entry in response:
+            if subject.lower() in entry['title'].lower():
+                is_found = True
+                context.bot.send_message(chat_id=update.effective_chat.id,
+                                         text='Обрабатываю запрос...\n'
+                                              'Вы будете отмечены:\n'
+                                              'Предмет: ' + entry['title'] + '\n'
+                                                                             'Время начала: ' + entry['start'])
+                self.scheduler.add_job(self.send_attendance, 'date',
+                                       run_date=datetime.datetime.strptime(entry['start'], '%Y-%m-%dT%H:%M:%S'),
+                                       # datetime.datetime.strptime(entry['start'], '%Y-%m-%dT%H:%M:%S') || datetime.datetime.now() + datetime.timedelta(minutes=1)
+                                       args=[update.effective_chat.id, entry['url']],
+                                       id=str(update.effective_chat.id) + entry['ID'])
+
+        if not is_found:
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text='По вашему запросу ничего не найдено\n')
+        return None
+
+    def send_attendance(self, chat_id, url):
+        print("STARTED!!!!")
+        html_to_parse = self.sessions[chat_id].get_page_to_parse(url)
+        msgs_ids = self.get_msg_id(html_to_parse)
+        csrf = self.get_csrf(html_to_parse)
+        attnd_variants = [
+            'Здравствуйте, на занятии присутствую.',
+            'На занятии присутствую',
+            'Присутствую',
+            'Присутствие',
+            'Отмечаю свое присутствие'
+        ]
+        self.sessions[chat_id].test_fnc(msgs_ids, random.choice(attnd_variants), csrf)
+
+    def clear_attendance(self, update, context):
+        if not self.check_super(update.effective_chat.id):
+            message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text='<b>🔑Ошибка!</b>\nВам не открыт этот функционал. Для учтонения информации обратитесь по адресу: contact@babunov.dev',
+                                               parse_mode='html')
+            self.sessions[update.effective_chat.id].messages_to_delete.append(message)
+            return
+        counter = 0
+        for job in self.scheduler.get_jobs():
+            if job.id.split()[0] == update.effective_chat.id:
+                self.scheduler.remove_job(job.id)
+                counter += 1
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text='Задач было очищено: ' + str(counter))
 
     def check_for_date_updates(self, data, bot, chat_id):
         for entry in data:
@@ -291,7 +453,8 @@ class TelegramBot:
             user = update.message.from_user
             new_user = {
                 "Telegram": "@" + user['username'],
-                "ID": user['id']
+                "ID": user['id'],
+                "isSuper": False
             }
             self.write_stats(new_user)
             message = context.bot.send_message(chat_id=update.effective_chat.id,
@@ -411,9 +574,9 @@ class TelegramBot:
             keyboard = [
                 [InlineKeyboardButton("Чат",
                                       callback_data='msg {days} {id0} {id1} {id2}'.format(days=delta.days,
-                                                                                                id0=msgs_ids[0],
-                                                                                                id1=msgs_ids[1],
-                                                                                                id2=msgs_ids[2]))],
+                                                                                          id0=msgs_ids[0],
+                                                                                          id1=msgs_ids[1],
+                                                                                          id2=msgs_ids[2]))],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             message = context.bot.send_message(chat_id=update.effective_chat.id,
