@@ -2,6 +2,8 @@ import json
 import requests
 import urllib.parse
 
+from apscheduler.schedulers.background import BackgroundScheduler
+
 
 class University:
     def __init__(self):
@@ -200,7 +202,7 @@ class University:
                   'DistanceLearningResults%5BUploadStoredFile%5D=""&' \
                   'tax_file=""'.format(message=msg)
 
-        response = self.session.request("POST", url, headers=headers, data=payload)
+        response = self.session.request("POST", url, headers=headers, data=payload.encode('utf-8'))
         if response.status_code == 200:
             return json.loads(response.text)
         print(json.loads(response.text))
