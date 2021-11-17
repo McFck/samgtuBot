@@ -203,4 +203,5 @@ class University:
         response = self.session.request("POST", url, headers=headers, data=payload)
         if response.status_code == 200:
             return json.loads(response.text)
+        print(json.loads(response.text))
         return None

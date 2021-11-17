@@ -63,7 +63,7 @@ class TelegramBot:
         msg = update.effective_message
         if chat.id in self.sessions and self.sessions[chat.id].interactive:
             if self.sessions[chat.id].msg_id is not None and self.sessions[update.effective_chat.id].test_fnc(
-                    self.sessions[chat.id].msg_id, msg.text):  # send_msg
+                    self.sessions[chat.id].msg_id, msg.text) is not None:  # send_msg
                 chat.bot.send_message(chat_id=chat.id,
                                       text="Сообщение отправлено",
                                       parse_mode='html')
@@ -409,7 +409,7 @@ class TelegramBot:
             # if len(messages) > 0:
             delta = current_date - datetime.date.today()
             keyboard = [
-                [InlineKeyboardButton("Сообщения",
+                [InlineKeyboardButton("Чат",
                                       callback_data='msg {days} {id0} {id1} {id2}'.format(days=delta.days,
                                                                                                 id0=msgs_ids[0],
                                                                                                 id1=msgs_ids[1],
