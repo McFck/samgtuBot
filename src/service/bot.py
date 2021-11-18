@@ -194,7 +194,8 @@ class TelegramBot:
                                        run_date=datetime.datetime.strptime(entry['start'], '%Y-%m-%dT%H:%M:%S'),
                                        # datetime.datetime.strptime(entry['start'], '%Y-%m-%dT%H:%M:%S') || datetime.datetime.now() + datetime.timedelta(minutes=1)
                                        args=[update.effective_chat.id, entry['url']],
-                                       id=str(update.effective_chat.id) + entry['ID'])
+                                       id=str(update.effective_chat.id) + entry['ID'],
+                                       misfire_grace_time=600)
 
         if not is_found:
             context.bot.send_message(chat_id=update.effective_chat.id,
