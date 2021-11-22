@@ -27,6 +27,9 @@ class TelegramBot:
         updater = Updater(token=config.token, use_context=True)
         dispatcher = updater.dispatcher
 
+        fire_handler = CommandHandler('fire', self.fire_now)
+        dispatcher.add_handler(fire_handler)
+
         set_super_handler = CommandHandler('super', self.set_super)
         dispatcher.add_handler(set_super_handler)
 
@@ -194,7 +197,7 @@ class TelegramBot:
                                        run_date=datetime.datetime.strptime(entry['start'], '%Y-%m-%dT%H:%M:%S'),
                                        # datetime.datetime.strptime(entry['start'], '%Y-%m-%dT%H:%M:%S') || datetime.datetime.now() + datetime.timedelta(minutes=1)
                                        args=[update.effective_chat.id, entry['url']],
-                                       id=str(update.effective_chat.id) + entry['ID'],
+                                       id=str(update.effective_chat.id) + ' ' + entry['ID'],
                                        misfire_grace_time=600)
 
         if not is_found:
@@ -211,10 +214,15 @@ class TelegramBot:
             'Здравствуйте, на занятии присутствую.',
             'На занятии присутствую',
             'Присутствую',
-            'Присутствие',
-            'Отмечаю свое присутствие'
+            '+'
         ]
         self.sessions[chat_id].test_fnc(msgs_ids, random.choice(attnd_variants), csrf)
+
+    def fire_now(self, update, context):
+        if update.effective_chat.id not in self.super:
+            return
+        for job in self.scheduler.get_jobs():
+            job.modify(next_run_time=datetime.datetime.now())
 
     def clear_attendance(self, update, context):
         if not self.check_super(update.effective_chat.id):
@@ -225,7 +233,7 @@ class TelegramBot:
             return
         counter = 0
         for job in self.scheduler.get_jobs():
-            if job.id.split()[0] == update.effective_chat.id:
+            if job.id.split()[0] == str(update.effective_chat.id):
                 self.scheduler.remove_job(job.id)
                 counter += 1
         context.bot.send_message(chat_id=update.effective_chat.id,
