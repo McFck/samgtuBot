@@ -22,7 +22,7 @@ class TelegramBot:
     def __init__(self):
         self.super = {174740505}
         self.sessions = {}
-        self.scheduler = BackgroundScheduler()
+        self.scheduler = BackgroundScheduler({'apscheduler.timezone': 'Europe/Samara'})
         self.scheduler.start()
         updater = Updater(token=config.token, use_context=True)
         dispatcher = updater.dispatcher
