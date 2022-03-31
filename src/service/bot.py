@@ -522,11 +522,18 @@ class TelegramBot:
         ]
         for i in range(7): #TODO: Убрать офсет в днях и проставлять даты
             current_offset_day = (week_days_arr[i].date() - check_day) + datetime.timedelta(days=week_day)
-            keyboard[0].append(InlineKeyboardButton(get_week_day_short((datetime.datetime.today() + current_offset_day).weekday()),
-                                                    callback_data=str(current_offset_day.days)))
+
             if i > 4:
-                keyboard[1].append(InlineKeyboardButton(get_week_day_short((check_day + current_offset_day).weekday()),
-                                                        callback_data=str(current_offset_day.days)))
+                keyboard[1].append(
+                    InlineKeyboardButton(get_week_day_short((datetime.datetime.today() + current_offset_day).weekday()),
+                                                        callback_data=str(current_offset_day.days))
+                )
+            else:
+                keyboard[0].append(
+                    InlineKeyboardButton(get_week_day_short((datetime.datetime.today() + current_offset_day).weekday()),
+                                         callback_data=str(current_offset_day.days))
+                )
+
         keyboard[1].append(InlineKeyboardButton("⏭", callback_data=str(week_day + 7)))
         return InlineKeyboardMarkup(keyboard)
 
