@@ -10,7 +10,7 @@ import datetime
 from bs4 import BeautifulSoup
 from datetime import date
 from src.dto import calendarTable
-from formattingRoutine import format_msg, get_week_day, format_calendar, formatTasks
+from formattingRoutine import format_msg, get_week_day, format_calendar, formatTasks, get_week_day_short
 import time
 import json
 
@@ -213,8 +213,7 @@ class TelegramBot:
         attnd_variants = [
             'Здравствуйте, на занятии присутствую.',
             'На занятии присутствую',
-            'Присутствую',
-            '+'
+            'Присутствую'
         ]
         self.sessions[chat_id].test_fnc(msgs_ids, random.choice(attnd_variants), csrf)
 
@@ -509,19 +508,26 @@ class TelegramBot:
         else:
             self.process_calendar(update, context, week_day)
 
-    def create_navigation_keyboard(self, week_day):
+    def get_week_days(self, check_day):
+        year, week, dow = (datetime.datetime.combine(check_day, datetime.datetime.now().time())).isocalendar()
+        week_start = datetime.datetime.strptime(str(year) + "-" + str(week - 1) + "-0", "%Y-%W-%w")
+        return [(week_start + datetime.timedelta(days=x)) for x in range(1, 8)]
+
+    def create_navigation_keyboard(self, week_day, check_day):
+        week_days_arr = self.get_week_days(check_day)
         keyboard = [
-            [
-                InlineKeyboardButton("◀", callback_data=str(week_day - 1)),
-                InlineKeyboardButton("▶", callback_data=str(week_day + 1)),
-            ],
-            [
-                InlineKeyboardButton("⏮", callback_data=str(week_day - 7)),
-                InlineKeyboardButton("⏭", callback_data=str(week_day + 7)),
-            ],
+            [],
+            [InlineKeyboardButton("⏮", callback_data=str(week_day - 7))],
             [InlineKeyboardButton("Сегодня ↩", callback_data='0')],
         ]
-
+        for i in range(7): #TODO: Убрать офсет в днях и проставлять даты
+            current_offset_day = (week_days_arr[i].date() - check_day) + datetime.timedelta(days=week_day)
+            keyboard[0].append(InlineKeyboardButton(get_week_day_short((datetime.datetime.today() + current_offset_day).weekday()),
+                                                    callback_data=str(current_offset_day.days)))
+            if i > 4:
+                keyboard[1].append(InlineKeyboardButton(get_week_day_short((check_day + current_offset_day).weekday()),
+                                                        callback_data=str(current_offset_day.days)))
+        keyboard[1].append(InlineKeyboardButton("⏭", callback_data=str(week_day + 7)))
         return InlineKeyboardMarkup(keyboard)
 
     def process_calendar(self, update: Update, context: CallbackContext, week_day, message=None):
@@ -539,7 +545,7 @@ class TelegramBot:
             return
         self.parse_date(context, update, response, check_day)
 
-        reply_markup = self.create_navigation_keyboard(week_day)
+        reply_markup = self.create_navigation_keyboard(week_day, check_day)
 
         if message is None:
             message = update.message.reply_text('Навигация:', reply_markup=reply_markup)

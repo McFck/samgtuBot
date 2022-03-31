@@ -61,6 +61,24 @@ def get_week_day(day):
     return '???'
 
 
+def get_week_day_short(day):
+    if day == 0:
+        return 'Пн'
+    if day == 1:
+        return 'Вт'
+    if day == 2:
+        return 'Ср'
+    if day == 3:
+        return 'Чт'
+    if day == 4:
+        return 'Пт'
+    if day == 5:
+        return 'Сб'
+    if day == 6:
+        return 'Вс'
+    return '???'
+
+
 def format_calendar(self, update, calendar, msgs=[], is_new='0'):
     result = ''
     result += '🧑‍🏫 <b>Преподаватель:</b> ' + calendar.teacher + '\n'
