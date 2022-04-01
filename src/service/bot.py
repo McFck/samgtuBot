@@ -264,7 +264,7 @@ class TelegramBot:
                 self.write_updates_cache(chat_id, new_msgs_data)
                 keyboard = [
                     [
-                        InlineKeyboardButton("Перейти к дате 👀", callback_data=str(date.today())),
+                        InlineKeyboardButton("Перейти к дате 👀", callback_data=str(cur_date)),
                     ],
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
