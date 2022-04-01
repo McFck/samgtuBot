@@ -262,10 +262,9 @@ class TelegramBot:
                 is_new = True
             if is_new:
                 self.write_updates_cache(chat_id, new_msgs_data)
-                offset = (cur_date - date.today()).days
                 keyboard = [
                     [
-                        InlineKeyboardButton("Перейти к дате 👀", callback_data=str(offset)),
+                        InlineKeyboardButton("Перейти к дате 👀", callback_data=str(date.today())),
                     ],
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
@@ -485,7 +484,7 @@ class TelegramBot:
                 print("too old")
         self.sessions[update.effective_chat.id].messages_to_delete = []
 
-    def calendar(self, update, context, week_day=0):
+    def calendar(self, update, context, week_day=date.today()):
         if update.effective_chat.id not in self.sessions:
             service = university.University()
             self.sessions[update.effective_chat.id] = service
@@ -503,7 +502,7 @@ class TelegramBot:
                 ids = [split[2], split[3], split[4]]
                 self.process_msgs(update, context, split[1], ids)
             else:
-                week_day = int(choice)
+                week_day = datetime.datetime.strptime(choice, "%Y-%m-%d").date()
                 self.process_calendar(update, context, week_day, query.message)
         else:
             self.process_calendar(update, context, week_day)
@@ -513,35 +512,31 @@ class TelegramBot:
         week_start = datetime.datetime.strptime(str(year) + "-" + str(week - 1) + "-0", "%Y-%W-%w")
         return [(week_start + datetime.timedelta(days=x)) for x in range(1, 8)]
 
-    def create_navigation_keyboard(self, week_day, check_day):
+    def create_navigation_keyboard(self, check_day):
         week_days_arr = self.get_week_days(check_day)
         keyboard = [
             [],
-            [InlineKeyboardButton("⏮", callback_data=str(week_day - 7))],
-            [InlineKeyboardButton("Сегодня ↩", callback_data='0')],
+            [InlineKeyboardButton("⏮", callback_data=str(check_day - datetime.timedelta(days=7)))],
+            [InlineKeyboardButton("Сегодня ↩", callback_data=str(date.today()))],
         ]
-        for i in range(7): #TODO: Убрать офсет в днях и проставлять даты
-            current_offset_day = (week_days_arr[i].date() - check_day) + datetime.timedelta(days=week_day)
-
+        for i in range(7):
             if i > 4:
                 keyboard[1].append(
-                    InlineKeyboardButton(get_week_day_short((datetime.datetime.today() + current_offset_day).weekday()),
-                                                        callback_data=str(current_offset_day.days))
+                    InlineKeyboardButton(get_week_day_short(week_days_arr[i].date().weekday()),
+                                         callback_data=str(week_days_arr[i].date()))
                 )
             else:
                 keyboard[0].append(
-                    InlineKeyboardButton(get_week_day_short((datetime.datetime.today() + current_offset_day).weekday()),
-                                         callback_data=str(current_offset_day.days))
+                    InlineKeyboardButton(get_week_day_short(week_days_arr[i].weekday()),
+                                         callback_data=str(week_days_arr[i].date()))
                 )
 
-        keyboard[1].append(InlineKeyboardButton("⏭", callback_data=str(week_day + 7)))
+        keyboard[1].append(InlineKeyboardButton("⏭", callback_data=str(check_day + datetime.timedelta(days=7))))
         return InlineKeyboardMarkup(keyboard)
 
-    def process_calendar(self, update: Update, context: CallbackContext, week_day, message=None):
-        self.sessions[update.effective_chat.id].offset = week_day
-        today = date.today()
-        check_day = today + datetime.timedelta(days=week_day)
-        next_day = today + datetime.timedelta(days=week_day + 1)
+    def process_calendar(self, update: Update, context: CallbackContext, check_day, message=None):
+        self.sessions[update.effective_chat.id].offset = check_day
+        next_day = check_day + datetime.timedelta(days=1)
         response = self.sessions[update.effective_chat.id].get_calendar_data(check_day.strftime("%Y-%m-%d"),
                                                                              next_day.strftime("%Y-%m-%d"))
         if response is None:
@@ -552,13 +547,13 @@ class TelegramBot:
             return
         self.parse_date(context, update, response, check_day)
 
-        reply_markup = self.create_navigation_keyboard(week_day, check_day)
+        reply_markup = self.create_navigation_keyboard(check_day)
 
         if message is None:
-            message = update.message.reply_text('Навигация:', reply_markup=reply_markup)
+            message = update.message.reply_text('Навигация:            ', reply_markup=reply_markup)
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
         else:
-            message = message.reply_text('Навигация:', reply_markup=reply_markup)
+            message = message.reply_text('Навигация:            ', reply_markup=reply_markup)
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
     def parse_date(self, context, update, dateInfo, current_date):
@@ -595,7 +590,7 @@ class TelegramBot:
             delta = current_date - datetime.date.today()
             keyboard = [
                 [InlineKeyboardButton("Чат",
-                                      callback_data='msg {days} {id0} {id1} {id2}'.format(days=delta.days,
+                                      callback_data='msg {days} {id0} {id1} {id2}'.format(days=str(current_date),
                                                                                           id0=msgs_ids[0],
                                                                                           id1=msgs_ids[1],
                                                                                           id2=msgs_ids[2]))],
@@ -652,7 +647,7 @@ class TelegramBot:
 
         return calendar
 
-    def process_msgs(self, update, context, offset, ids):
+    def process_msgs(self, update, context, date_back, ids):
         key = ' '.join(ids)
         lst = self.sessions[update.effective_chat.id].messages_to_show.get(key)
         to_delete = context.bot.send_message(chat_id=update.effective_chat.id,
@@ -664,12 +659,11 @@ class TelegramBot:
             self.sessions[update.effective_chat.id].messages_to_delete.append(to_delete)
 
         keyboard = [
-            [InlineKeyboardButton("Вернуться", callback_data=offset)],
-            # was offset
+            [InlineKeyboardButton("Вернуться", callback_data=date_back)],
         ]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
-        message = to_delete.reply_text('Навигация:', reply_markup=reply_markup)
+        message = to_delete.reply_text('Навигация:            ', reply_markup=reply_markup)
         self.sessions[update.effective_chat.id].get_messages_to_parse(ids, True)
         self.sessions[update.effective_chat.id].messages_to_delete.append(message)
         self.sessions[update.effective_chat.id].msg_id = ids
