@@ -63,19 +63,19 @@ def get_week_day(day):
 
 def get_week_day_short(day):
     if day == 0:
-        return 'Пн'
+        return 'Понед.'
     if day == 1:
-        return 'Вт'
+        return 'Вторник'
     if day == 2:
-        return 'Ср'
+        return 'Среда'
     if day == 3:
-        return 'Чт'
+        return 'Четверг'
     if day == 4:
-        return 'Пт'
+        return 'Пятн.'
     if day == 5:
-        return 'Сб'
+        return 'Суббота'
     if day == 6:
-        return 'Вс'
+        return 'Вск'
     return '???'
 
 
