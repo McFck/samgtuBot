@@ -13,6 +13,7 @@ from src.dto import calendarTable
 from formattingRoutine import format_msg, get_week_day, format_calendar, formatTasks, get_week_day_short
 import time
 import json
+import pickle
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -21,7 +22,14 @@ class TelegramBot:
 
     def __init__(self):
         self.super = {174740505}
-        self.sessions = {}
+        try:
+            with open("sessions.txt", 'rb') as in_file:
+                self.sessions = {}
+                sessions_dict = pickle.load(in_file)
+                for session_key in sessions_dict:
+                    self.sessions[session_key] = university.University(sessions_dict[session_key])
+        except IOError:
+            self.sessions = {}
         self.scheduler = BackgroundScheduler({'apscheduler.timezone': 'Europe/Samara'})
         self.scheduler.start()
         updater = Updater(token=config.token, use_context=True)
@@ -66,14 +74,18 @@ class TelegramBot:
         dispatcher.add_handler(CallbackQueryHandler(self.calendar))
         while True:
             updater.start_polling()
-            time.sleep(1800)
             self.session_loop(updater.bot)
+            time.sleep(1800)
 
     def session_loop(self, bot):
+        sessions_array = {}
         for chat_id in self.sessions.keys():
             if self.is_Authorized(chat_id):
+                sessions_array[chat_id] = self.sessions[chat_id].session
                 data = self.request_year_data(chat_id)
                 self.check_for_date_updates(data, bot, chat_id)
+        with open("sessions.txt", 'wb') as out_file:
+            pickle.dump(sessions_array, out_file)
 
     def on_msg_handler(self, update: Update, context: CallbackContext):
         chat = update.effective_chat

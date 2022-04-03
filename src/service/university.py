@@ -6,14 +6,17 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 
 class University:
-    def __init__(self):
+    def __init__(self, session=None):
         self.interactive = False
         self.context = None
         self.messages_to_delete = []
         self.messages_to_show = {}
         self.new_update = False
         self.msg_id = None
-        self.session = requests.Session()
+        if session is not None:
+            self.session = session
+        else:
+            self.session = requests.Session()
         self.cache = {}
 
     def login(self, username, password):
