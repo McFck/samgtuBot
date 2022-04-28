@@ -79,13 +79,28 @@ def get_week_day_short(day):
     return '???'
 
 
+ordered_attr = ['subject', 'type', 'time', 'teacher',  'place']
+
+
+def get_string_by_attr(attr):
+    if attr == 'teacher':
+        return '🧑‍🏫 <b>Преподаватель:</b> '
+    if attr == 'subject':
+        return '✏ <b>Дисциплина:</b> '
+    if attr == 'type':
+        return '📖 <b>Вид занятия:</b> '
+    if attr == 'time':
+        return '⏳ <b>Время проведения занятия:</b> '
+    if attr == 'place':
+        return '📍 <b>Место проведения занятия:</b> '
+
+
 def format_calendar(self, update, calendar, msgs=[], is_new='0'):
     result = ''
-    result += '🧑‍🏫 <b>Преподаватель:</b> ' + calendar.teacher + '\n'
-    result += '✏ <b>Дисциплина:</b> ' + calendar.subject + '\n'
-    result += '📖 Вид занятия: ' + calendar.type + '\n'
-    result += '⏳ Время проведения занятия: ' + calendar.time + '\n'
-    result += '📍 <i>Место проведения занятия:</i> ' + calendar.place + '\n'
+    for attr in ordered_attr:
+        title = get_string_by_attr(str(attr))
+        if title and getattr(calendar, attr):
+            result += title + str(getattr(calendar, attr) or "Отсутствует") + '\n'
 
     if len(calendar.tasks) > 0:
         result += '📝 Результаты: '
@@ -97,7 +112,10 @@ def format_calendar(self, update, calendar, msgs=[], is_new='0'):
     if calendar.newTask:
         result += '📣 <b>Есть невыполненное задание!</b>' + '\n'
 
-    messagesCounter = len(msgs)
+    if msgs is None:
+        messagesCounter = 0
+    else:
+        messagesCounter = len(msgs)
 
     if messagesCounter > 0:
         if is_new == '1':

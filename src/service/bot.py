@@ -218,7 +218,6 @@ class TelegramBot:
         return None
 
     def send_attendance(self, chat_id, url):
-        print("STARTED!!!!")
         html_to_parse = self.sessions[chat_id].get_page_to_parse(url)
         msgs_ids = self.get_msg_id(html_to_parse)
         csrf = self.get_csrf(html_to_parse)
@@ -269,7 +268,7 @@ class TelegramBot:
                         new_msgs_data.append(msg['ID'])
                         is_new = True
 
-            if entry['NewResult'] != '0':
+            if entry['NewResult'] == '1':
                 message += '📝 Новый результат? (В процессе разработки, сообщите об этом тексте сюда: contact@babunov.dev)' + '\n'
                 is_new = True
             if is_new:
@@ -568,6 +567,13 @@ class TelegramBot:
             message = message.reply_text('Навигация:            ', reply_markup=reply_markup)
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
 
+    def clear_dates(self, dates, current_date):
+        result = []
+        for dateInfo in dates:
+            if datetime.datetime.strptime(dateInfo.get('start'), "%Y-%m-%dT%H:%M:%S").date() == current_date:
+                result.append(dateInfo)
+        return result
+
     def parse_date(self, context, update, dateInfo, current_date):
         self.sessions[update.effective_chat.id].messages_to_show = {}
         # self.sessions[update.effective_chat.id].short_cache = []
@@ -584,38 +590,46 @@ class TelegramBot:
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
             return
         self.sessions[update.effective_chat.id].cache = {}
+        dateInfo = self.clear_dates(dateInfo, current_date)
+        taskId = None
+        msgs_ids = None
+        messages = None
         for item in dateInfo:
-            html_to_parse = self.sessions[update.effective_chat.id].get_page_to_parse(item['url'])
-            table = self.parse_table(html_to_parse)
-            taskId = self.get_task_id(html_to_parse)
-            msgs_ids = self.get_msg_id(html_to_parse)
-            messages = self.sessions[update.effective_chat.id].get_messages_to_parse(msgs_ids, False)
-            table.msg_ids = ' '.join(msgs_ids)
-            self.sessions[update.effective_chat.id].cache[' '.join(msgs_ids)] = self.get_csrf(html_to_parse)
-            self.sessions[update.effective_chat.id].messages_to_show[' '.join(msgs_ids)] = messages
+            if self.verify_url(item['url']):
+                html_to_parse = self.sessions[update.effective_chat.id].get_page_to_parse(item['url'])
+                table = self.parse_table(html_to_parse)
+                taskId = self.get_task_id(html_to_parse)
+                msgs_ids = self.get_msg_id(html_to_parse)
+                if msgs_ids is not None:
+                    messages = self.sessions[update.effective_chat.id].get_messages_to_parse(msgs_ids, False)
+                    table.msg_ids = ' '.join(msgs_ids)
+                    self.sessions[update.effective_chat.id].cache[' '.join(msgs_ids)] = self.get_csrf(html_to_parse)
+                    self.sessions[update.effective_chat.id].messages_to_show[' '.join(msgs_ids)] = messages
+            else:
+                table = self.parse_table(None, item)
             if taskId is not None:
                 tasksToFormat = self.sessions[update.effective_chat.id].get_tasks_to_parse(taskId)
                 table = formatTasks(tasksToFormat, table)
             result = format_calendar(self, update, table, messages, item['IsNew'])
 
-            # if len(messages) > 0:
-            delta = current_date - datetime.date.today()
-            keyboard = [
-                [InlineKeyboardButton("Чат",
-                                      callback_data='msg {days} {id0} {id1} {id2}'.format(days=str(current_date),
-                                                                                          id0=msgs_ids[0],
-                                                                                          id1=msgs_ids[1],
-                                                                                          id2=msgs_ids[2]))],
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            message = context.bot.send_message(chat_id=update.effective_chat.id,
+            if msgs_ids is not None:
+                keyboard = [
+                    [InlineKeyboardButton("Чат",
+                                          callback_data='msg {days} {id0} {id1} {id2}'.format(days=str(current_date),
+                                                                                              id0=msgs_ids[0],
+                                                                                              id1=msgs_ids[1],
+                                                                                              id2=msgs_ids[2]))],
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                message = context.bot.send_message(chat_id=update.effective_chat.id,
                                                text=result, parse_mode='html', reply_markup=reply_markup)
-            # else:
-            #    message = context.bot.send_message(chat_id=update.effective_chat.id,
-            #                                      text=result, parse_mode='html')
+            else:
+                message = context.bot.send_message(chat_id=update.effective_chat.id,
+                                                    text=result, parse_mode='html')
             self.sessions[update.effective_chat.id].messages_to_delete.append(message)
-            # self.sessions[update.effective_chat.id].short_cache.append(result)
-            # self.sessions[update.effective_chat.id].context = context
+
+    def verify_url(self, url):
+        return re.match(r'.?distancelearning/distancelearning/view\?id.*', url)
 
     def get_task_id(self, html):
         soup = BeautifulSoup(html)
@@ -638,24 +652,32 @@ class TelegramBot:
             return IdBlockToParse[IdBlockToParse.find("(") + 1:IdBlockToParse.find(")")].split(', ')
         return None
 
-    def parse_table(self, html):
-        soup = BeautifulSoup(html)
-        table = soup.find("table", {"id": "w0"})
-        rows = table.find_all('tr')
+    def parse_table(self, html, extended=None):
         calendar = calendarTable.CalendarTable()
-        for row in rows:
-            header = row.find('th')
-            value = row.find('td')
-            if header.contents[0] == 'Преподаватель':
-                calendar.teacher = value.text.strip()
-            if header.contents[0] == 'Дисциплина':
-                calendar.subject = value.text.strip()
-            if header.contents[0] == 'Вид занятия':
-                calendar.type = value.text.strip()
-            if header.contents[0] == 'Время проведения занятия':
-                calendar.time = value.text.strip()
-            if header.contents[0] == 'Место проведения занятия':
-                calendar.place = value.text.strip()
+        if html is None and extended is not None:
+            calendar.subject = extended.get('title') or 'Название отсутствует'
+            if extended.get('start') != extended.get('end'):
+                calendar.time = datetime.datetime.strptime(extended.get('start'), '%Y-%m-%dT%H:%M:%S').strftime('%H:%M') + '-' + \
+                            datetime.datetime.strptime(extended.get('end'), '%Y-%m-%dT%H:%M:%S').strftime('%H:%M')\
+
+        else:
+            soup = BeautifulSoup(html)
+            table = soup.find("table", {"id": "w0"})
+            rows = table.find_all('tr')
+
+            for row in rows:
+                header = row.find('th')
+                value = row.find('td')
+                if header.contents[0] == 'Преподаватель':
+                    calendar.teacher = value.text.strip()
+                if header.contents[0] == 'Дисциплина':
+                    calendar.subject = value.text.strip()
+                if header.contents[0] == 'Вид занятия':
+                    calendar.type = value.text.strip()
+                if header.contents[0] == 'Время проведения занятия':
+                    calendar.time = value.text.strip()
+                if header.contents[0] == 'Место проведения занятия':
+                    calendar.place = value.text.strip()
 
         return calendar
 
